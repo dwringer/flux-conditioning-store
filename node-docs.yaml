@@ -1,0 +1,20 @@
+repository_name: FLUX Conditioning Store
+author: dwringer
+license: MIT
+description: Use SQLite to store and retrieve FLUX conditionings
+keywords: [node, invokeai, python, stablediffusion]
+requirements:
+  - invokeai>=4
+intro: |
+  This is a pair of nodes for taking FLUX Conditioning objects - specifically, prompt embeddings (consisting of T5 and CLIP embedding tensors) - and storing/retrieving them with an SQLite database file. This avoids the overhead of having to encode the conditioning somehow in image metadata, with the disadvantage of being non-portable.
+
+  The database is stored in a file, `flux\_conditionings.db`, right alongside the source code of this node. In the `store\_flux\_conditioning.py` file, there are configurable variables to set the maximum DB size and warning thresholds, after which the oldest entries will be automatically deleted. Therefore, if you expect to need them for a while, make sure to increase the size limit.
+
+  ### Installation:
+
+  To install these nodes, simply place the folder containing this
+  repository's code (or just clone the repository yourself) into your
+  `invokeai/nodes` folder.
+
+outro: |
+  For questions/comments/concerns/etc, use github or drop into the InvokeAI discord where you'll probably find someone who can help.
