@@ -54,14 +54,16 @@ repository's code (or just clone the repository yourself) into your
 
 **Category:** conditioning
 
-**Tags:** conditioning, flux, database, retrieve, list
+**Tags:** conditioning, flux, database, retrieve, list, timestamp, deterministic
 
-**Version:** 1.1.2
+**Version:** 1.1.4
 
 **Description:** Retrieves one or more FLUX Conditioning objects (CLIP and T5 embeddings)
 
 from an SQLite database using unique identifiers.
     Outputs a single selected conditioning and a list of all retrieved conditionings.
+    Includes an option to update the timestamp of retrieved entries.
+    The input conditioning IDs are sorted for deterministic retrieval.
 
 <details>
 <summary>
@@ -74,6 +76,7 @@ from an SQLite database using unique identifiers.
 | ---- | ---- | ----------- | ------- |
 | `conditioning_id_or_list` | `Union[(str, list[str])]` | The unique identifier(s) of the Flux Conditioning(s) to retrieve. | None |
 | `select_index` | `int` | Index of the retrieved conditioning to output as the single 'conditioning' field. If out of bounds, uses modulus. | 0 |
+| `touch_timestamp` | `bool` | When true, updates the timestamp of retrieved entries to 'now', preventing early purge. | False |
 
 
 </details>

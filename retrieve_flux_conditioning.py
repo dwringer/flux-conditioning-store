@@ -1,6 +1,7 @@
 import sqlite3
 import io
 import os
+import time # Import the time module for timestamps
 
 import torch
 
@@ -48,15 +49,17 @@ class RetrieveFluxConditioningMultiOutput(BaseInvocationOutput):
 @invocation(
     "retrieve_flux_conditioning",
     title="Retrieve Flux Conditioning",
-    tags=["conditioning", "flux", "database", "retrieve", "list"],
+    tags=["conditioning", "flux", "database", "retrieve", "list", "timestamp", "deterministic"],
     category="conditioning",
-    version="1.1.2", # Incrementing version due to feature change
+    version="1.1.4", # Incrementing version due to sorting feature
 )
 class RetrieveFluxConditioningInvocation(BaseInvocation):
     """
     Retrieves one or more FLUX Conditioning objects (CLIP and T5 embeddings)
     from an SQLite database using unique identifiers.
     Outputs a single selected conditioning and a list of all retrieved conditionings.
+    Includes an option to update the timestamp of retrieved entries.
+    The input conditioning IDs are sorted for deterministic retrieval.
     """
 
     conditioning_id_or_list: Union[str, list[str]] = InputField(
@@ -68,6 +71,12 @@ class RetrieveFluxConditioningInvocation(BaseInvocation):
         default=0,
         description="Index of the retrieved conditioning to output as the single 'conditioning' field. If out of bounds, uses modulus.",
         ui_order=1,
+    )
+
+    touch_timestamp: bool = InputField(
+        default=False,
+        description="When true, updates the timestamp of retrieved entries to 'now', preventing early purge.",
+        ui_order=2,
     )
 
     def invoke(self, context: InvocationContext) -> RetrieveFluxConditioningMultiOutput:
@@ -88,6 +97,12 @@ class RetrieveFluxConditioningInvocation(BaseInvocation):
                 conditioning_list=[]
             )
 
+        # Sort the list of conditioning IDs for deterministic behavior
+        if conditioning_ids_to_retrieve: # Only sort if the list is not empty
+            conditioning_ids_to_retrieve.sort()
+            info(f"Sorted conditioning IDs for deterministic retrieval: {conditioning_ids_to_retrieve}")
+
+
         if not conditioning_ids_to_retrieve:
             warning("No conditioning IDs provided for retrieval. Returning empty outputs.")
             return RetrieveFluxConditioningMultiOutput(
@@ -97,59 +112,77 @@ class RetrieveFluxConditioningInvocation(BaseInvocation):
 
         retrieved_flux_conditioning_fields: list[FluxConditioningField] = []
         
+        conn = None # Initialize conn to None
         try:
             conn = sqlite3.connect(DB_FILE)
             cursor = conn.cursor()
 
             # Construct the query for multiple IDs using the IN clause
+            # The order of placeholders here matters for the execute method, but the SELECT results
+            # are not guaranteed to come back in the same order as the IN clause, hence the sorting
+            # of conditioning_ids_to_retrieve *before* query execution helps ensure consistency
             placeholders = ",".join("?" * len(conditioning_ids_to_retrieve))
             query = f"SELECT id, clip_embeds, t5_embeds FROM flux_conditionings WHERE id IN ({placeholders})"
             
             cursor.execute(query, conditioning_ids_to_retrieve)
             results = cursor.fetchall() # Fetch all results in one go
-            conn.close() # Close connection after fetching results
 
             retrieved_ids_set = {row[0] for row in results}
             missing_ids = [cond_id for cond_id in conditioning_ids_to_retrieve if cond_id not in retrieved_ids_set]
             for missing_id in missing_ids:
                 warning(f"No conditioning found with ID: {missing_id}")
 
-
-            for result_row in results:
-                cond_id, clip_bytes, t5_bytes = result_row
-
-                clip_embeds_tensor = None
-                t5_embeds_tensor = None
-
-                # Deserialize tensors from bytes
-                try:
-                    clip_buffer = io.BytesIO(clip_bytes)
-                    clip_embeds_tensor = torch.load(clip_buffer)
-
-                    t5_buffer = io.BytesIO(t5_bytes)
-                    t5_embeds_tensor = torch.load(t5_buffer)
-                except Exception as e:
-                    error(f"Failed to deserialize tensors for ID {cond_id}: {e}")
-                    # Continue to next ID if deserialization fails for one
-                    continue 
-
-                if clip_embeds_tensor is None or t5_embeds_tensor is None:
-                    error(f"Retrieved conditioning for ID {cond_id} is incomplete. Skipping.")
-                    # Continue to next ID if incomplete
-                    continue
-
-                # Reconstruct and save the FLUX Conditioning object to the InvokeAI context
-                conditioning_info = FLUXConditioningInfo(clip_embeds=clip_embeds_tensor, t5_embeds=t5_embeds_tensor)
-                conditioning_data = ConditioningFieldData(conditionings=[conditioning_info])
+            # If touch_timestamp is true, update the timestamp for all retrieved entries
+            if self.touch_timestamp and retrieved_ids_set:
+                current_timestamp = int(time.time())
+                update_placeholders = ",".join("?" * len(retrieved_ids_set))
+                update_query = f"UPDATE flux_conditionings SET timestamp = ? WHERE id IN ({update_placeholders})"
                 
-                # This will save the conditioning to InvokeAI's internal memory management system
-                # and return a name (ID) that can be used by other nodes.
-                conditioning_name = context.conditioning.save(conditioning_data)
-                info(f"Retrieved and re-saved conditioning with ID: {cond_id} as new conditioning name: {conditioning_name}")
+                try:
+                    # Convert set to list for consistent parameter passing
+                    cursor.execute(update_query, [current_timestamp] + list(retrieved_ids_set))
+                    conn.commit() # Commit the changes to the database
+                    info(f"Updated timestamp for {len(retrieved_ids_set)} retrieved entries.")
+                except sqlite3.Error as update_e:
+                    error(f"Error updating timestamps in database: {update_e}")
+                    # Do not re-raise, allow retrieval to proceed if update fails
 
-                retrieved_flux_conditioning_fields.append(
-                    FluxConditioningField(conditioning_name=conditioning_name)
-                )
+            # Create a dictionary for quick lookup and then build the list in sorted order of IDs.
+            results_map = {row[0]: (row[1], row[2]) for row in results}
+            
+            for cond_id in conditioning_ids_to_retrieve: # Iterate through the sorted input IDs
+                if cond_id in results_map:
+                    clip_bytes, t5_bytes = results_map[cond_id]
+
+                    clip_embeds_tensor = None
+                    t5_embeds_tensor = None
+
+                    # Deserialize tensors from bytes
+                    try:
+                        clip_buffer = io.BytesIO(clip_bytes)
+                        clip_embeds_tensor = torch.load(clip_buffer)
+
+                        t5_buffer = io.BytesIO(t5_bytes)
+                        t5_embeds_tensor = torch.load(t5_buffer)
+                    except Exception as e:
+                        error(f"Failed to deserialize tensors for ID {cond_id}: {e}")
+                        continue 
+
+                    if clip_embeds_tensor is None or t5_embeds_tensor is None:
+                        error(f"Retrieved conditioning for ID {cond_id} is incomplete. Skipping.")
+                        continue
+
+                    # Reconstruct and save the FLUX Conditioning object to the InvokeAI context
+                    conditioning_info = FLUXConditioningInfo(clip_embeds=clip_embeds_tensor, t5_embeds=t5_embeds_tensor)
+                    conditioning_data = ConditioningFieldData(conditionings=[conditioning_info])
+                    
+                    conditioning_name = context.conditioning.save(conditioning_data)
+                    info(f"Retrieved and re-saved conditioning with ID: {cond_id} as new conditioning name: {conditioning_name}")
+
+                    retrieved_flux_conditioning_fields.append(
+                        FluxConditioningField(conditioning_name=conditioning_name)
+                    )
+                # else: missing_id warning already handled above
 
         except sqlite3.Error as e:
             error(f"Error accessing database during retrieval: {e}")
@@ -157,6 +190,9 @@ class RetrieveFluxConditioningInvocation(BaseInvocation):
                 conditioning=FluxConditioningField(conditioning_name=""),
                 conditioning_list=[]
             )
+        finally:
+            if conn:
+                conn.close() # Ensure connection is closed even if errors occur
 
         # Determine the single output conditioning using select_index
         selected_conditioning_output: FluxConditioningField
@@ -173,4 +209,3 @@ class RetrieveFluxConditioningInvocation(BaseInvocation):
             conditioning=selected_conditioning_output,
             conditioning_list=retrieved_flux_conditioning_fields
         )
-
