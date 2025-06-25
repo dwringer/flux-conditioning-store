@@ -22,6 +22,7 @@ repository's code (or just clone the repository yourself) into your
 
 ## Overview
 ### Nodes
+- [Flux Conditioning List](#flux-conditioning-list) - Takes multiple optional Flux Conditioning inputs and outputs them as a single
 - [Retrieve Flux Conditioning](#retrieve-flux-conditioning) - Retrieves one or more FLUX Conditioning objects (CLIP and T5 embeddings)
 - [Store Flux Conditioning](#store-flux-conditioning) - Stores a FLUX Conditioning object (CLIP and T5 embeddings) into an SQLite database.
 
@@ -33,7 +34,7 @@ repository's code (or just clone the repository yourself) into your
 </summary>
 
 - `_get_db_size` - Returns the current size of the database file in bytes.
-- `_manage_db_size` - Manages the database size, deleting oldest entries if the maximum size is exceeded.
+- `_manage_db_size` - Manages the database size, deleting a fraction of oldest entries if the maximum size is exceeded.
 - `_init_db` - Initializes the SQLite database and creates the table for storing conditioning data.
 </details>
 
@@ -44,11 +45,61 @@ repository's code (or just clone the repository yourself) into your
 
 </summary>
 
+- `FluxConditioningListOutput` - Output definition with 1 fields
 - `RetrieveFluxConditioningMultiOutput` - Output definition with 2 fields
 - `FluxConditioningStoreOutput` - Output definition with 1 fields
 </details>
 
 ## Nodes
+### Flux Conditioning List
+**ID:** `flux_conditioning_list`
+
+**Category:** conditioning
+
+**Tags:** conditioning, flux, list, utility, order
+
+**Version:** 1.0.1
+
+**Description:** Takes multiple optional Flux Conditioning inputs and outputs them as a single
+
+ordered list. Missing (None) inputs are gracefully handled.
+
+<details>
+<summary>
+
+#### Inputs
+
+</summary>
+
+| Name | Type | Description | Default |
+| ---- | ---- | ----------- | ------- |
+| `conditioning_1` | `Any` | First optional Flux Conditioning input. | None |
+| `conditioning_2` | `Any` | Second optional Flux Conditioning input. | None |
+| `conditioning_3` | `Any` | Third optional Flux Conditioning input. | None |
+| `conditioning_4` | `Any` | Fourth optional Flux Conditioning input. | None |
+| `conditioning_5` | `Any` | Fifth optional Flux Conditioning input. | None |
+| `conditioning_6` | `Any` | Sixth optional Flux Conditioning input. | None |
+
+
+</details>
+
+<details>
+<summary>
+
+#### Output
+
+</summary>
+
+**Type:** `FluxConditioningListOutput`
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `conditioning_list` | `list[FluxConditioningField]` | An ordered list of provided Flux Conditioning objects. |
+
+
+</details>
+
+---
 ### Retrieve Flux Conditioning
 **ID:** `retrieve_flux_conditioning`
 
@@ -106,11 +157,12 @@ from an SQLite database using unique identifiers.
 
 **Tags:** conditioning, flux, database, store
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 
 **Description:** Stores a FLUX Conditioning object (CLIP and T5 embeddings) into an SQLite database.
 
 Returns a unique identifier for retrieval.
+    Includes database size management with proactive deletion and VACUUM.
 
 <details>
 <summary>
