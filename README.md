@@ -59,13 +59,12 @@ repository's code (or just clone the repository yourself) into your
 
 **Tags:** conditioning, flux, concatenate, merge, utility
 
-**Version:** 1.1.1
+**Version:** 1.2.0
 
 **Description:** Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
 
-The CLIP embedding from the first provided conditioning is used as the final CLIP embedding.
-    Outputs a new Flux Conditioning object with the combined embeddings.
-    Requires at least two conditioning inputs to perform concatenation.
+Provides flexible control over the CLIP embedding: select by index, concatenate all,
+    or generate a pad tensor.
 
 <details>
 <summary>
@@ -76,12 +75,13 @@ The CLIP embedding from the first provided conditioning is used as the final CLI
 
 | Name | Type | Description | Default |
 | ---- | ---- | ----------- | ------- |
-| `conditioning_1` | `Any` | First optional Flux Conditioning input. Its CLIP embedding will be used. | None |
-| `conditioning_2` | `Any` | Second optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
-| `conditioning_3` | `Any` | Third optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
-| `conditioning_4` | `Any` | Fourth optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
-| `conditioning_5` | `Any` | Fifth optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
-| `conditioning_6` | `Any` | Sixth optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
+| `conditioning_1` | `Any` | First optional Flux Conditioning input. | None |
+| `conditioning_2` | `Any` | Second optional Flux Conditioning input. | None |
+| `conditioning_3` | `Any` | Third optional Flux Conditioning input. | None |
+| `conditioning_4` | `Any` | Fourth optional Flux Conditioning input. | None |
+| `conditioning_5` | `Any` | Fifth optional Flux Conditioning input. | None |
+| `conditioning_6` | `Any` | Sixth optional Flux Conditioning input. | None |
+| `select_clip` | `int` | Index of single CLIP embedding to pass on [0-n).  | 0 |
 
 
 </details>

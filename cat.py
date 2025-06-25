@@ -9,7 +9,6 @@ from invokeai.invocation_api import (
     OutputField,
     invocation_output,
     BaseInvocationOutput,
-    # Removed InvocationError as per user feedback
 )
 from invokeai.app.invocations.fields import (
     FluxConditioningField,
@@ -29,51 +28,56 @@ from invokeai.backend.util.logging import info, warning, error
     title="Concatenate Flux Conditionings",
     tags=["conditioning", "flux", "concatenate", "merge", "utility"],
     category="conditioning",
-    version="1.1.1",  # Incrementing version due to CLIP concatenation logic change
+    version="1.2.0",  # Incrementing version due to feature change
 )
 class ConcatenateFluxConditioningInvocation(BaseInvocation):
     """
     Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
-    The CLIP embedding from the first provided conditioning is used as the final CLIP embedding.
-    Outputs a new Flux Conditioning object with the combined embeddings.
-    Requires at least two conditioning inputs to perform concatenation.
+    Provides flexible control over the CLIP embedding: select by index, concatenate all,
+    or generate a pad tensor.
     """
 
     conditioning_1: FluxConditioningField | None = InputField(
         default=None,
-        description="First optional Flux Conditioning input. Its CLIP embedding will be used.",
+        description="First optional Flux Conditioning input.",
         ui_order=0,
     )
     conditioning_2: FluxConditioningField | None = InputField(
         default=None,
-        description="Second optional Flux Conditioning input. Its T5 embedding will be concatenated.",
+        description="Second optional Flux Conditioning input.",
         ui_order=1,
     )
     conditioning_3: FluxConditioningField | None = InputField(
         default=None,
-        description="Third optional Flux Conditioning input. Its T5 embedding will be concatenated.",
+        description="Third optional Flux Conditioning input.",
         ui_order=2,
     )
     conditioning_4: FluxConditioningField | None = InputField(
         default=None,
-        description="Fourth optional Flux Conditioning input. Its T5 embedding will be concatenated.",
+        description="Fourth optional Flux Conditioning input.",
         ui_order=3,
     )
     conditioning_5: FluxConditioningField | None = InputField(
         default=None,
-        description="Fifth optional Flux Conditioning input. Its T5 embedding will be concatenated.",
+        description="Fifth optional Flux Conditioning input.",
         ui_order=4,
     )
     conditioning_6: FluxConditioningField | None = InputField(
         default=None,
-        description="Sixth optional Flux Conditioning input. Its T5 embedding will be concatenated.",
+        description="Sixth optional Flux Conditioning input.",
         ui_order=5,
+    )
+    select_clip: int = InputField(
+        default=0,
+        description="Index of single CLIP embedding to pass on [0-n). ",
+        ge=-2,
+        ui_order=6,
     )
 
     def invoke(self, context: InvocationContext) -> FluxConditioningOutput:
         """
         Loads multiple Flux Conditioning objects, concatenates their T5 embeddings,
-        uses the first CLIP embedding, and saves the new combined conditioning.
+        processes CLIP embeddings based on 'select_clip', and saves the new combined conditioning.
         """
         all_input_conditionings: List[Optional[FluxConditioningField]] = [
             self.conditioning_1,
@@ -95,7 +99,6 @@ class ConcatenateFluxConditioningInvocation(BaseInvocation):
                         cond_field.conditioning_name
                     )
                     if not conditioning_data.conditionings:
-                        # Continue to next if the loaded data itself is empty, don't break loop
                         warning(f"Conditioning from input {i+1} is empty or invalid. Skipping.")
                         continue
                     loaded_flux_infos.append(conditioning_data.conditionings[0])
@@ -104,51 +107,101 @@ class ConcatenateFluxConditioningInvocation(BaseInvocation):
                     error(f"Failed to load conditioning from input {i+1}: {e}")
                     raise Exception(f"Failed to load conditioning from input {i+1}: {e}")
 
-        if len(loaded_flux_infos) < 2:
-            error(
-                "Concatenation requires at least two valid Flux Conditioning inputs. "
-                f"Only {len(loaded_flux_infos)} were provided."
-            )
-            raise Exception(
-                "Concatenation requires at least two valid Flux Conditioning inputs."
-            )
+        # Separate lists for T5 and CLIP embeddings
+        all_t5_embeds_tensors: List[torch.Tensor] = []
+        all_clip_embeds_tensors: List[torch.Tensor] = []
+        
+        # Populate lists and check for None
+        for i, flux_info in enumerate(loaded_flux_infos):
+            if flux_info.t5_embeds is None:
+                warning(f"T5 embeddings missing for conditioning from input {i+1}. Skipping for T5 concatenation.")
+            else:
+                all_t5_embeds_tensors.append(flux_info.t5_embeds)
+            
+            if flux_info.clip_embeds is None:
+                warning(f"CLIP embeddings missing for conditioning from input {i+1}. Skipping for CLIP processing.")
+            else:
+                all_clip_embeds_tensors.append(flux_info.clip_embeds)
 
-        # Initialize with the first conditioning's embeddings
-        # For CLIP, we now just take the first one
-        final_clip_embeds = loaded_flux_infos[0].clip_embeds
-        current_t5_embeds = loaded_flux_infos[0].t5_embeds
+        # Determine the target device from the first available CLIP or T5 embedding
+        target_device = 'cpu' # Default device
+        if all_clip_embeds_tensors:
+            target_device = all_clip_embeds_tensors[0].device
+        elif all_t5_embeds_tensors:
+            target_device = all_t5_embeds_tensors[0].device
 
+
+        # --- Process CLIP Embeddings based on self.select_clip ---
+        final_clip_embeds: Optional[torch.Tensor] = None
+
+        if self.select_clip == -2:
+            # Return a pad tensor
+            info("Returning a zero-filled (pad) CLIP tensor.")
+            if all_clip_embeds_tensors:
+                # Use the shape of the first valid CLIP embedding as a template
+                clip_shape = all_clip_embeds_tensors[0].shape
+                final_clip_embeds = torch.zeros(clip_shape, device=target_device)
+            else:
+                # Default shape if no CLIP embeddings are available to infer from
+                # Common CLIP embedding shape: (batch_size, sequence_length, embedding_dimension)
+                final_clip_embeds = torch.zeros((1, 77, 768), device=target_device) # Default to common shape
+        elif self.select_clip == -1:
+            # Concatenate all available CLIP embeddings
+            info("Concatenating all available CLIP embeddings.")
+            if len(all_clip_embeds_tensors) < 2:
+                error("CLIP concatenation requires at least two valid CLIP embeddings. Only one or zero found.")
+                raise Exception("CLIP concatenation requires at least two valid CLIP embeddings.")
+            
+            try:
+                # Move all CLIP tensors to the target device before concatenation
+                clip_tensors_on_device = [t.to(target_device) for t in all_clip_embeds_tensors]
+                final_clip_embeds = torch.cat(clip_tensors_on_device, dim=1)
+                info(f"Concatenated CLIP embeddings. Final CLIP shape: {final_clip_embeds.shape}")
+            except Exception as e:
+                error(f"Error concatenating CLIP embeddings: {e}")
+                raise Exception(f"Error concatenating CLIP embeddings: {e}")
+        elif self.select_clip >= 0:
+            # Select a specific CLIP embedding by index
+            info(f"Selecting CLIP embedding at index {self.select_clip}.")
+            if not all_clip_embeds_tensors:
+                error("No valid CLIP embeddings provided to select from.")
+                raise Exception("No valid CLIP embeddings provided to select from.")
+            if self.select_clip >= len(all_clip_embeds_tensors):
+                error(f"CLIP selection index {self.select_clip} is out of bounds. Available CLIP embeddings: {len(all_clip_embeds_tensors)}.")
+                raise Exception(f"CLIP selection index {self.select_clip} is out of bounds.")
+            
+            final_clip_embeds = all_clip_embeds_tensors[self.select_clip].to(target_device)
+            info(f"Selected CLIP embedding at index {self.select_clip}. Final CLIP shape: {final_clip_embeds.shape}")
+        
+        # Ensure final_clip_embeds is not None after processing, unless it's a valid pad tensor
         if final_clip_embeds is None:
-            error("CLIP embeddings missing from the first valid conditioning. Cannot proceed.")
-            raise Exception("CLIP embeddings missing from the first valid conditioning.")
-        if current_t5_embeds is None:
-            error("T5 embeddings missing from the first valid conditioning. Cannot proceed with concatenation.")
-            raise Exception("T5 embeddings missing from the first valid conditioning.")
+            error("Failed to determine final CLIP embeddings. This should not happen.")
+            raise Exception("Failed to determine final CLIP embeddings.")
 
-        device = final_clip_embeds.device # Use the device from the first CLIP embed
 
-        # Concatenate subsequent T5 conditionings only
-        for i, flux_info in enumerate(loaded_flux_infos[1:]): # Start from the second item
-            input_number = i + 2 # Corresponds to conditioning_2, conditioning_3, etc.
+        # --- Process T5 Embeddings (Concatenate) ---
+        # If all_t5_embeds_tensors is empty, the next line will raise an IndexError,
+        # which is the intended behavior for no T5 inputs.
+        current_t5_embeds = all_t5_embeds_tensors[0].to(target_device)
+
+        # Concatenate subsequent T5 conditionings
+        for i, t5_embeds in enumerate(all_t5_embeds_tensors[1:]): # Start from the second item
+            input_number = i + 2 # Corresponds to conditioning_2, conditioning_3, etc. in original input list
             info(f"Concatenating T5 with conditioning from input {input_number}...")
 
-            if flux_info.t5_embeds is None:
-                warning(f"T5 embeddings missing for conditioning from input {input_number}. Skipping T5 concatenation for this input.")
-                continue # Skip this specific input's T5 if it's missing
-
             try:
-                # Move to the same device if not already
-                next_t5_embeds = flux_info.t5_embeds.to(device)
+                next_t5_embeds = t5_embeds.to(target_device)
                 current_t5_embeds = torch.cat((current_t5_embeds, next_t5_embeds), dim=1)
                 info(f"Concatenated T5 with input {input_number}. Current T5 shape: {current_t5_embeds.shape}")
             except Exception as e:
                 error(f"Error concatenating T5 embeddings from input {input_number}: {e}")
                 raise Exception(f"Error concatenating T5 embeddings from input {input_number}: {e}")
 
+
         # --- Create and Save New Flux Conditioning ---
-        info("Creating new FLUX Conditioning object with first CLIP and concatenated T5 embeddings...")
+        info("Creating new FLUX Conditioning object with processed CLIP and concatenated T5 embeddings...")
         new_flux_info = FLUXConditioningInfo(
-            clip_embeds=final_clip_embeds, # Use the CLIP from the first input
+            clip_embeds=final_clip_embeds,
             t5_embeds=current_t5_embeds,
         )
         new_conditioning_data = ConditioningFieldData(conditionings=[new_flux_info])
@@ -162,4 +215,3 @@ class ConcatenateFluxConditioningInvocation(BaseInvocation):
 
         # --- Return the new Flux Conditioning output ---
         return FluxConditioningOutput.build(conditioning_name=new_conditioning_name)
-
