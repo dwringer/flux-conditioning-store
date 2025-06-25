@@ -22,6 +22,7 @@ repository's code (or just clone the repository yourself) into your
 
 ## Overview
 ### Nodes
+- [Concatenate Flux Conditionings](#concatenate-flux-conditionings) - Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
 - [Flux Conditioning List](#flux-conditioning-list) - Takes multiple optional Flux Conditioning inputs and outputs them as a single
 - [Retrieve Flux Conditioning](#retrieve-flux-conditioning) - Retrieves one or more FLUX Conditioning objects (CLIP and T5 embeddings)
 - [Store Flux Conditioning](#store-flux-conditioning) - Stores a FLUX Conditioning object (CLIP and T5 embeddings) into an SQLite database.
@@ -51,6 +52,54 @@ repository's code (or just clone the repository yourself) into your
 </details>
 
 ## Nodes
+### Concatenate Flux Conditionings
+**ID:** `flux_conditioning_concatenate`
+
+**Category:** conditioning
+
+**Tags:** conditioning, flux, concatenate, merge, utility
+
+**Version:** 1.1.1
+
+**Description:** Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
+
+The CLIP embedding from the first provided conditioning is used as the final CLIP embedding.
+    Outputs a new Flux Conditioning object with the combined embeddings.
+    Requires at least two conditioning inputs to perform concatenation.
+
+<details>
+<summary>
+
+#### Inputs
+
+</summary>
+
+| Name | Type | Description | Default |
+| ---- | ---- | ----------- | ------- |
+| `conditioning_1` | `Any` | First optional Flux Conditioning input. Its CLIP embedding will be used. | None |
+| `conditioning_2` | `Any` | Second optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
+| `conditioning_3` | `Any` | Third optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
+| `conditioning_4` | `Any` | Fourth optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
+| `conditioning_5` | `Any` | Fifth optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
+| `conditioning_6` | `Any` | Sixth optional Flux Conditioning input. Its T5 embedding will be concatenated. | None |
+
+
+</details>
+
+<details>
+<summary>
+
+#### Output
+
+</summary>
+
+**Type:** `FluxConditioningOutput.build(...)`
+
+
+
+</details>
+
+---
 ### Flux Conditioning List
 **ID:** `flux_conditioning_list`
 
