@@ -28,7 +28,7 @@ from invokeai.backend.util.logging import info, warning, error
     title="Concatenate Flux Conditionings",
     tags=["conditioning", "flux", "concatenate", "merge", "utility"],
     category="conditioning",
-    version="1.2.0",  # Incrementing version due to feature change
+    version="1.3.0",  # Increment version on each feature change
 )
 class ConcatenateFluxConditioningInvocation(BaseInvocation):
     """
@@ -40,38 +40,67 @@ class ConcatenateFluxConditioningInvocation(BaseInvocation):
     conditioning_1: FluxConditioningField | None = InputField(
         default=None,
         description="First optional Flux Conditioning input.",
-        ui_order=0,
-    )
+     )
+    strength_1: float = InputField(
+        default=1.0,
+        description="Strength for the first conditioning input (multiplies its embedding tensors).",
+        ge=-2.0,
+        le=2.0,
+     )
     conditioning_2: FluxConditioningField | None = InputField(
         default=None,
         description="Second optional Flux Conditioning input.",
-        ui_order=1,
-    )
+     )
+    strength_2: float = InputField(
+        default=1.0,
+        description="Strength for the second conditioning input (multiplies its embedding tensors).",
+        ge=-2.0,
+        le=2.0,
+     )
     conditioning_3: FluxConditioningField | None = InputField(
         default=None,
         description="Third optional Flux Conditioning input.",
-        ui_order=2,
+     )
+    strength_3: float = InputField(
+        default=1.0,
+        description="Strength for the third conditioning input (multiplies its embedding tensors).",
+        ge=-2.0,
+        le=2.0,
     )
     conditioning_4: FluxConditioningField | None = InputField(
         default=None,
         description="Fourth optional Flux Conditioning input.",
-        ui_order=3,
+    )
+    strength_4: float = InputField(
+        default=1.0,
+        description="Strength for the fourth conditioning input (multiplies its embedding tensors).",
+        ge=-2.0,
+        le=2.0,
     )
     conditioning_5: FluxConditioningField | None = InputField(
         default=None,
         description="Fifth optional Flux Conditioning input.",
-        ui_order=4,
+    )
+    strength_5: float = InputField(
+        default=1.0,
+        description="Strength for the fifth conditioning input (multiplies its embedding tensors).",
+        ge=-2.0,
+        le=2.0,
     )
     conditioning_6: FluxConditioningField | None = InputField(
         default=None,
         description="Sixth optional Flux Conditioning input.",
-        ui_order=5,
+    )
+    strength_6: float = InputField(
+        default=1.0,
+        description="Strength for the sixth conditioning input (multiplies its embedding tensors).",
+        ge=-2.0,
+        le=2.0,
     )
     select_clip: int = InputField(
         default=0,
         description="Index of single CLIP embedding to pass on [0-n). ",
         ge=-2,
-        ui_order=6,
     )
 
     def invoke(self, context: InvocationContext) -> FluxConditioningOutput:
@@ -88,9 +117,19 @@ class ConcatenateFluxConditioningInvocation(BaseInvocation):
             self.conditioning_6,
         ]
 
-        loaded_flux_infos: List[FLUXConditioningInfo] = []
+        all_input_strengths: List[float] = [
+            self.strength_1,
+            self.strength_2,
+            self.strength_3,
+            self.strength_4,
+            self.strength_5,
+            self.strength_6,
+        ]
 
-        # Load all provided conditionings
+        loaded_flux_infos: List[FLUXConditioningInfo] = []
+        loaded_flux_strengths: List[float] = [] # Store strengths corresponding to loaded infos
+
+        # Load all provided conditionings and their corresponding strengths
         for i, cond_field in enumerate(all_input_conditionings):
             if cond_field is not None:
                 info(f"Loading conditioning from input {i+1}: {cond_field.conditioning_name}")
@@ -102,26 +141,31 @@ class ConcatenateFluxConditioningInvocation(BaseInvocation):
                         warning(f"Conditioning from input {i+1} is empty or invalid. Skipping.")
                         continue
                     loaded_flux_infos.append(conditioning_data.conditionings[0])
+                    loaded_flux_strengths.append(all_input_strengths[i]) # Add corresponding strength
                     info(f"Successfully loaded conditioning from input {i+1}.")
                 except Exception as e:
                     error(f"Failed to load conditioning from input {i+1}: {e}")
                     raise Exception(f"Failed to load conditioning from input {i+1}: {e}")
 
-        # Separate lists for T5 and CLIP embeddings
+        # Separate lists for T5 and CLIP embeddings, applying strengths
         all_t5_embeds_tensors: List[torch.Tensor] = []
         all_clip_embeds_tensors: List[torch.Tensor] = []
         
-        # Populate lists and check for None
+        # Populate lists and check for None, applying strength
         for i, flux_info in enumerate(loaded_flux_infos):
+            strength = loaded_flux_strengths[i] # Get the strength for this specific conditioning
+
             if flux_info.t5_embeds is None:
                 warning(f"T5 embeddings missing for conditioning from input {i+1}. Skipping for T5 concatenation.")
             else:
-                all_t5_embeds_tensors.append(flux_info.t5_embeds)
-            
+                # Apply strength to T5 embedding
+                all_t5_embeds_tensors.append(flux_info.t5_embeds * strength)
+                
             if flux_info.clip_embeds is None:
                 warning(f"CLIP embeddings missing for conditioning from input {i+1}. Skipping for CLIP processing.")
             else:
-                all_clip_embeds_tensors.append(flux_info.clip_embeds)
+                # Apply strength to CLIP embedding
+                all_clip_embeds_tensors.append(flux_info.clip_embeds * strength)
 
         # Determine the target device from the first available CLIP or T5 embedding
         target_device = 'cpu' # Default device

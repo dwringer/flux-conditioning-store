@@ -59,7 +59,7 @@ repository's code (or just clone the repository yourself) into your
 
 **Tags:** conditioning, flux, concatenate, merge, utility
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 
 **Description:** Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
 
@@ -76,11 +76,17 @@ Provides flexible control over the CLIP embedding: select by index, concatenate 
 | Name | Type | Description | Default |
 | ---- | ---- | ----------- | ------- |
 | `conditioning_1` | `Any` | First optional Flux Conditioning input. | None |
+| `strength_1` | `float` | Strength for the first conditioning input (multiplies its embedding tensors). | 1.0 |
 | `conditioning_2` | `Any` | Second optional Flux Conditioning input. | None |
+| `strength_2` | `float` | Strength for the second conditioning input (multiplies its embedding tensors). | 1.0 |
 | `conditioning_3` | `Any` | Third optional Flux Conditioning input. | None |
+| `strength_3` | `float` | Strength for the third conditioning input (multiplies its embedding tensors). | 1.0 |
 | `conditioning_4` | `Any` | Fourth optional Flux Conditioning input. | None |
+| `strength_4` | `float` | Strength for the fourth conditioning input (multiplies its embedding tensors). | 1.0 |
 | `conditioning_5` | `Any` | Fifth optional Flux Conditioning input. | None |
+| `strength_5` | `float` | Strength for the fifth conditioning input (multiplies its embedding tensors). | 1.0 |
 | `conditioning_6` | `Any` | Sixth optional Flux Conditioning input. | None |
+| `strength_6` | `float` | Strength for the sixth conditioning input (multiplies its embedding tensors). | 1.0 |
 | `select_clip` | `int` | Index of single CLIP embedding to pass on [0-n).  | 0 |
 
 
