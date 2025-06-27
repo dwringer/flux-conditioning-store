@@ -59,12 +59,12 @@ repository's code (or just clone the repository yourself) into your
 
 **Tags:** conditioning, flux, concatenate, merge, utility
 
-**Version:** 1.3.0
+**Version:** 1.4.1
 
 **Description:** Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
 
-Provides flexible control over the CLIP embedding: select by index, concatenate all,
-    or generate a pad tensor.
+Provides flexible control over the CLIP embedding: select by 1-indexed input number,
+    or generate a zeros tensor.
 
 <details>
 <summary>
@@ -87,7 +87,7 @@ Provides flexible control over the CLIP embedding: select by index, concatenate 
 | `strength_5` | `float` | Strength for the fifth conditioning input (multiplies its embedding tensors). | 1.0 |
 | `conditioning_6` | `Any` | Sixth optional Flux Conditioning input. | None |
 | `strength_6` | `float` | Strength for the sixth conditioning input (multiplies its embedding tensors). | 1.0 |
-| `select_clip` | `int` | Index of single CLIP embedding to pass on [0-n).  | 0 |
+| `select_clip` | `int` | CLIP embedding selection: 0 for a zeros tensor; 1-6 to select a specific input (1-indexed). If a selected input is missing, it falls back to the next subsequent, then preceding, available CLIP embedding. | 1 |
 
 
 </details>
