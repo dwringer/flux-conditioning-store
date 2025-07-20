@@ -23,6 +23,7 @@ repository's code (or just clone the repository yourself) into your
 ## Overview
 ### Nodes
 - [Concatenate Flux Conditionings](#concatenate-flux-conditionings) - Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
+- [Flux Conditioning Blend](#flux-conditioning-blend) - Performs a blend between two FLUX Conditioning objects using either direct SLERP
 - [Flux Conditioning List](#flux-conditioning-list) - Takes multiple optional Flux Conditioning inputs and outputs them as a single
 - [Retrieve Flux Conditioning](#retrieve-flux-conditioning) - Retrieves one or more FLUX Conditioning objects (CLIP and T5 embeddings)
 - [Store Flux Conditioning](#store-flux-conditioning) - Stores a FLUX Conditioning object (CLIP and T5 embeddings) into an SQLite database.
@@ -34,6 +35,7 @@ repository's code (or just clone the repository yourself) into your
 
 </summary>
 
+- `slerp` - Performs spherical linear interpolation (SLERP) between two *normalized* tensors.
 - `_get_db_size` - Returns the current size of the database file in bytes.
 - `_manage_db_size` - Manages the database size, deleting a fraction of oldest entries if the maximum size is exceeded.
 - `_init_db` - Initializes the SQLite database and creates the table for storing conditioning data.
@@ -46,6 +48,7 @@ repository's code (or just clone the repository yourself) into your
 
 </summary>
 
+- `FluxConditioningBlendOutput` - Output definition with 1 fields
 - `FluxConditioningListOutput` - Output definition with 1 fields
 - `RetrieveFluxConditioningMultiOutput` - Output definition with 2 fields
 - `FluxConditioningStoreOutput` - Output definition with 1 fields
@@ -101,6 +104,53 @@ Provides flexible control over the CLIP embedding: select by 1-indexed input num
 
 **Type:** `FluxConditioningOutput.build(...)`
 
+
+
+</details>
+
+---
+### Flux Conditioning Blend
+**ID:** `flux_conditioning_blend`
+
+**Category:** conditioning
+
+**Tags:** conditioning, flux, interpolation, slerp, lerp, blend
+
+**Version:** 1.0.0
+
+**Description:** Performs a blend between two FLUX Conditioning objects using either direct SLERP
+
+or an advanced method that separates magnitude and direction.
+
+<details>
+<summary>
+
+#### Inputs
+
+</summary>
+
+| Name | Type | Description | Default |
+| ---- | ---- | ----------- | ------- |
+| `conditioning_1` | `FluxConditioningField` | The first FLUX Conditioning object. | None |
+| `conditioning_2` | `FluxConditioningField` | The second FLUX Conditioning object. | None |
+| `alpha` | `float` | Interpolation factor (0.0 for conditioning_1, 1.0 for conditioning_2). | 0.5 |
+| `use_magnitude_separation` | `bool` | If True, uses magnitude separation (SLERP for direction, LERP for magnitude); otherwise, uses direct SLERP. | False |
+
+
+</details>
+
+<details>
+<summary>
+
+#### Output
+
+</summary>
+
+**Type:** `FluxConditioningBlendOutput`
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `conditioning` | `FluxConditioningField` | The interpolated Flux Conditioning |
 
 
 </details>

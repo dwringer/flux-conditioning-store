@@ -31,9 +31,9 @@ from invokeai.backend.util.logging import info, warning, error
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flux_conditionings.db")
 
 # Global variables for database size management
-MAX_DB_SIZE_MB = 1024
-MARGIN_DB_SIZE_MB = 192
-WARNING_THRESHOLDS_MB = [96, 48, 24, 12] # Warning thresholds below the margin
+MAX_DB_SIZE_MB = 4096
+MARGIN_DB_SIZE_MB = 512
+WARNING_THRESHOLDS_MB = [512, 256, 128, 64] # Warning thresholds below margin
 
 # Convert to bytes
 MAX_DB_SIZE_BYTES = MAX_DB_SIZE_MB * 1024 * 1024
@@ -194,6 +194,9 @@ class StoreFluxConditioningInvocation(BaseInvocation):
 
         clip_embeds_tensor = loaded_cond.clip_embeds
         t5_embeds_tensor = loaded_cond.t5_embeds
+
+        info(f"Loaded CLIP embeds shape: {clip_embeds_tensor.shape}")
+        info(f"Loaded T5 embeds shape: {t5_embeds_tensor.shape}")
 
         if clip_embeds_tensor is None or t5_embeds_tensor is None:
             error("FLUX Conditioning object is missing CLIP or T5 embeddings.")
