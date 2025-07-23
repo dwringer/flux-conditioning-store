@@ -24,6 +24,7 @@ repository's code (or just clone the repository yourself) into your
 ### Nodes
 - [Concatenate Flux Conditionings](#concatenate-flux-conditionings) - Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
 - [Flux Conditioning Blend](#flux-conditioning-blend) - Performs a blend between two FLUX Conditioning objects using either direct SLERP
+- [Flux Conditioning Delta](#flux-conditioning-delta) - Calculates the delta between feature and reference conditionings,
 - [Flux Conditioning List](#flux-conditioning-list) - Takes multiple optional Flux Conditioning inputs and outputs them as a single
 - [Retrieve Flux Conditioning](#retrieve-flux-conditioning) - Retrieves one or more FLUX Conditioning objects (CLIP and T5 embeddings)
 - [Store Flux Conditioning](#store-flux-conditioning) - Stores a FLUX Conditioning object (CLIP and T5 embeddings) into an SQLite database.
@@ -35,6 +36,7 @@ repository's code (or just clone the repository yourself) into your
 
 </summary>
 
+- `_average_conditioning_list` - Averages a list of FLUXConditioningInfo objects into a single one.
 - `slerp` - Performs spherical linear interpolation (SLERP) between two *normalized* tensors.
 - `_get_db_size` - Returns the current size of the database file in bytes.
 - `_manage_db_size` - Manages the database size, deleting a fraction of oldest entries if the maximum size is exceeded.
@@ -48,6 +50,7 @@ repository's code (or just clone the repository yourself) into your
 
 </summary>
 
+- `FluxConditioningDeltaAndAugmentedOutput` - Output definition with 2 fields
 - `FluxConditioningBlendOutput` - Output definition with 1 fields
 - `FluxConditioningListOutput` - Output definition with 1 fields
 - `RetrieveFluxConditioningMultiOutput` - Output definition with 2 fields
@@ -151,6 +154,57 @@ or an advanced method that separates magnitude and direction.
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | `conditioning` | `FluxConditioningField` | The interpolated Flux Conditioning |
+
+
+</details>
+
+---
+### Flux Conditioning Delta
+**ID:** `flux_conditioning_delta_augmentation`
+
+**Category:** conditioning
+
+**Tags:** conditioning, flux, arithmetic, delta, augment
+
+**Version:** 1.0.0
+
+**Description:** Calculates the delta between feature and reference conditionings,
+
+and optionally augments a base conditioning with this delta.
+    If reference conditioning is omitted, it will be treated as zero tensors.
+
+<details>
+<summary>
+
+#### Inputs
+
+</summary>
+
+| Name | Type | Description | Default |
+| ---- | ---- | ----------- | ------- |
+| `feature_conditioning` | `Any` | Feature Conditioning (single or list) for delta calculation. If a list, it will be averaged. | None |
+| `reference_conditioning` | `Any` | Reference Conditioning (single or list) for delta calculation. If a list, it will be averaged. If omitted, zero tensors will be used as reference. | None |
+| `base_conditioning` | `Any` | Optional Base Conditioning to which the delta will be added. If not provided, Augmented Conditioning will be the Delta. | None |
+| `base_scale` | `float` | Scalar to multiply the base conditioning when augmenting. | 1.0 |
+| `delta_scale` | `float` | Scalar to multiply the delta when augmenting the base conditioning. | 1.0 |
+| `scale_delta_output` | `bool` | If true, the delta output will also be scaled by the delta_scale. | False |
+
+
+</details>
+
+<details>
+<summary>
+
+#### Output
+
+</summary>
+
+**Type:** `FluxConditioningDeltaAndAugmentedOutput`
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `augmented_conditioning` | `FluxConditioningField` | The augmented conditioning (base + delta, or just delta) |
+| `delta_conditioning` | `FluxConditioningField` | The resulting conditioning delta (feature - reference) |
 
 
 </details>
