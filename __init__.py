@@ -1,3 +1,4 @@
+from .augment import FluxConditioningDeltaAugmentationInvocation
 from .blend import FluxConditioningBlendInvocation
 from .cat import ConcatenateFluxConditioningInvocation
 from .order import FluxConditioningListInvocation
