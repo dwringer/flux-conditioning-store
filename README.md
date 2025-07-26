@@ -124,7 +124,7 @@ Provides flexible control over the CLIP embedding: select by 1-indexed input num
 
 **Description:** This node extracts specified metadata values from a collection of input images.
 
-It takes an image collection and a string input as a metadata key.
+It takes an image collection and a metadata key string input.
     For each image in the collection, it attempts to retrieve the value associated
     with the provided key. The extracted values are then compiled into a string 
     collection. If a key is not found for a particular image, an empty string is 
