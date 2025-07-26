@@ -23,6 +23,7 @@ repository's code (or just clone the repository yourself) into your
 ## Overview
 ### Nodes
 - [Concatenate Flux Conditionings](#concatenate-flux-conditionings) - Concatenates the T5 embedding tensors of up to six input Flux Conditioning objects.
+- [Extract Image Collection Metadata Item](#extract-image-collection-metadata-item) - This node extracts specified metadata values from a collection of input images.
 - [Flux Conditioning Blend](#flux-conditioning-blend) - Performs a blend between two FLUX Conditioning objects using either direct SLERP
 - [Flux Conditioning Delta](#flux-conditioning-delta) - Calculates the delta between feature and reference conditionings,
 - [Flux Conditioning List](#flux-conditioning-list) - Takes multiple optional Flux Conditioning inputs and outputs them as a single
@@ -106,6 +107,52 @@ Provides flexible control over the CLIP embedding: select by 1-indexed input num
 </summary>
 
 **Type:** `FluxConditioningOutput.build(...)`
+
+
+
+</details>
+
+---
+### Extract Image Collection Metadata Item
+**ID:** `extract_image_collection_metadata_item`
+
+**Category:** metadata
+
+**Tags:** image, metadata, extraction, collection, utility
+
+**Version:** 1.0.0
+
+**Description:** This node extracts specified metadata values from a collection of input images.
+
+It takes an image collection and a string input as a metadata key.
+    For each image in the collection, it attempts to retrieve the value associated
+    with the provided key. The extracted values are then compiled into a string 
+    collection. If a key is not found for a particular image, an empty string is 
+    appended to maintain collection length.
+
+<details>
+<summary>
+
+#### Inputs
+
+</summary>
+
+| Name | Type | Description | Default |
+| ---- | ---- | ----------- | ------- |
+| `images` | `list[ImageField]` | A collection of images from which to extract metadata. | None |
+| `key` | `str` | Metadata key to extract values for Output. Leave empty to ignore. |  |
+
+
+</details>
+
+<details>
+<summary>
+
+#### Output
+
+</summary>
+
+**Type:** `StringCollectionOutput`
 
 
 
